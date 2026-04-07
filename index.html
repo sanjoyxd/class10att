@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Class X Attendance - Assam Brilliant Academy</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+        body {
+            background-color: #f4f7f6;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding-bottom: 80px; 
+        }
+        .header-banner {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 2rem 1rem;
+            border-radius: 0 0 15px 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .nav-pills .nav-link {
+            color: #495057;
+            font-weight: 600;
+            margin: 0.2rem;
+            border-radius: 30px;
+        }
+        .nav-pills .nav-link.active {
+            background-color: #2a5298;
+            color: white;
+            box-shadow: 0 4px 6px rgba(42, 82, 152, 0.3);
+        }
+        .tab-content-section { display: none; }
+        .tab-content-section.active { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .attendance-row {
+            padding: 12px 10px;
+            border-bottom: 1px solid #e9ecef;
+            transition: background-color 0.2s;
+        }
+        .attendance-row:hover { background-color: #f8f9fa; }
+        .form-check-input {
+            width: 1.8em;
+            height: 1.8em;
+            margin-top: 0;
+            cursor: pointer;
+        }
+        .student-label {
+            cursor: pointer;
+            font-size: 1.1rem;
+            margin-left: 15px;
+            user-select: none;
+            width: 100%;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            border-left: 5px solid #2a5298;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            height: 100%;
+        }
+        .table-responsive {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            padding: 10px;
+        }
+        th { color: #6c757d; text-transform: uppercase; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+
+<div class="header-banner text-center mb-4">
+    <h1 class="h3 fw-bold mb-1"><i class="fas fa-graduation-cap me-2"></i>Assam Brilliant Academy</h1>
+    <p class="mb-0 text-light opacity-75">Class X - Attendance Portal</p>
+</div>
+
+<div class="container">
+    <ul class="nav nav-pills justify-content-center mb-4 flex-nowrap overflow-auto pb-2" style="white-space: nowrap;">
+        <li class="nav-item">
+            <button class="nav-link active tab-btn" onclick="switchTab('daily')"><i class="fas fa-calendar-check me-2"></i>Daily</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link tab-btn" onclick="switchTab('reports')"><i class="fas fa-chart-bar me-2"></i>Reports</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link tab-btn" onclick="switchTab('students')"><i class="fas fa-users-cog me-2"></i>Manage</button>
+        </li>
+    </ul>
+    
+    <div id="daily" class="tab-content-section active">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body bg-light rounded">
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label fw-bold text-muted small">Select Date</label>
+                        <input type="date" class="form-control form-control-lg" id="attendance-date" onchange="loadDailyAttendance()">
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <button class="btn btn-outline-success w-100 py-2" onclick="markAll(true)"><i class="fas fa-check-double me-1"></i> All Present</button>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <button class="btn btn-outline-danger w-100 py-2" onclick="markAll(false)"><i class="fas fa-times me-1"></i> All Absent</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-0" id="attendance-list"></div>
+        </div>
+        
+        <button class="btn btn-primary btn-lg w-100 shadow rounded-pill py-3 fw-bold" onclick="saveDailyAttendance()">
+            <i class="fas fa-save me-2"></i> Save Attendance for <span id="display-date">Today</span>
+        </button>
+        
+        <div id="save-msg" class="alert alert-success mt-3 text-center fw-bold" style="display: none;">
+            <i class="fas fa-check-circle me-2"></i> Attendance Saved Successfully!
+        </div>
+    </div>
+
+    <div id="reports" class="tab-content-section">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body bg-light rounded d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3">
+                <div class="flex-grow-1">
+                    <label class="form-label fw-bold text-muted small">Select Report Month</label>
+                    <input type="month" class="form-control form-control-lg" id="report-month" onchange="generateReport()">
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-secondary py-2 px-3" onclick="generateReport()"><i class="fas fa-sync-alt"></i></button>
+                    <button class="btn btn-success py-2 px-3 fw-bold" onclick="exportToExcel()"><i class="fas fa-file-excel me-2"></i>Export Excel</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-md-4">
+                <div class="stat-card text-center">
+                    <p class="text-muted small fw-bold mb-1">ACADEMIC SESSION</p>
+                    <h3 class="text-primary mb-0" id="summary-session">----</h3>
+                </div>
+            </div>
+            <div class="col-6 col-md-4">
+                <div class="stat-card text-center" style="border-left-color: #2ecc71;">
+                    <p class="text-muted small fw-bold mb-1">OPENED (MONTH)</p>
+                    <h3 class="text-success mb-0" id="summary-monthly-opened">0</h3>
+                </div>
+            </div>
+            <div class="col-6 col-md-4">
+                <div class="stat-card text-center" style="border-left-color: #f39c12;">
+                    <p class="text-muted small fw-bold mb-1">OPENED (ANNUAL)</p>
+                    <h3 class="text-warning mb-0" id="summary-annual-opened">0</h3>
+                </div>
+            </div>
+        </div>
+        
+        <div class="table-responsive border-0">
+            <table class="table table-hover table-striped align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Roll</th>
+                        <th>Name</th>
+                        <th class="text-center">Monthly</th>
+                        <th class="text-center">Annual</th>
+                    </tr>
+                </thead>
+                <tbody id="report-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="students" class="tab-content-section">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold"><i class="fas fa-user-plus me-2 text-primary"></i>Add New Student</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-12 col-md-3">
+                        <input type="number" class="form-control" id="roll-no" placeholder="Roll No." required>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <input type="text" class="form-control" id="student-name" placeholder="Full Name" required>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <button class="btn btn-primary w-100" onclick="addStudent()"><i class="fas fa-plus me-2"></i>Add</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="table-responsive border-0">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 15%;">Roll</th>
+                        <th>Student Name</th>
+                        <th style="width: 25%;" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="student-list"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // --- DATABASE ---
+    let students = JSON.parse(localStorage.getItem('aba_class10_students'));
+    let attendanceData = JSON.parse(localStorage.getItem('aba_class10_attendance')) || {};
+
+    if (!students || students.length === 0) {
+        students = [
+            { roll: "1", name: "PARISMITA RAHA ROY" }, { roll: "2", name: "PRIYANGSHU MANDAL" },
+            { roll: "3", name: "PRACHI SAHA" }, { roll: "4", name: "ANANYA BARMAN" },
+            { roll: "5", name: "ADITA GHOSH" }, { roll: "6", name: "SNIGHDHA GHOSH" },
+            { roll: "7", name: "DEEPJYOTI GAYARY" }, { roll: "8", name: "CHAYANKA SHEKHAR NATH" },
+            { roll: "9", name: "SANTANU BASAK" }, { roll: "10", name: "SAYAN SAHA" },
+            { roll: "11", name: "SUBHADEEP SAHA" }, { roll: "12", name: "RITIKA SAHA" },
+            { roll: "13", name: "IRFAN HABIB BHUYAN" }, { roll: "14", name: "TANISHA BARMAN" },
+            { roll: "15", name: "OM DEKA" }, { roll: "16", name: "MUNALI SAH" },
+            { roll: "17", name: "AMINA SULTANA" }, { roll: "18", name: "ASIF PRAMANIK" },
+            { roll: "19", name: "SHAKIB AHMED" }, { roll: "20", name: "NAFISA KHANAM" },
+            { roll: "21", name: "SOURAV DAS" }, { roll: "22", name: "NISHAN BORO (LEFT)" },
+            { roll: "23", name: "KRISHNANGI PARASAR" }
+        ];
+        localStorage.setItem('aba_class10_students', JSON.stringify(students));
+    }
+
+    // --- INIT ---
+    const today = new Date();
+    document.getElementById('attendance-date').valueAsDate = today;
+    const currentYearStr = today.getFullYear();
+    const currentMonthStr = String(today.getMonth() + 1).padStart(2, '0');
+    document.getElementById('report-month').value = `${currentYearStr}-${currentMonthStr}`;
+    
+    renderStudents();
+    loadDailyAttendance();
+
+    // --- TABS ---
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content-section').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        event.currentTarget.classList.add('active');
+        if(tabId === 'reports') generateReport();
+        if(tabId === 'daily') loadDailyAttendance();
+    }
+
+    // --- MANAGE STUDENTS ---
+    function addStudent() {
+        const roll = document.getElementById('roll-no').value.trim();
+        const name = document.getElementById('student-name').value.trim().toUpperCase();
+        if (!roll || !name) return alert('Please enter both Roll Number and Name.');
+        if (students.find(s => s.roll === roll)) return alert('This Roll Number already exists.');
+        students.push({ roll, name });
+        saveAndRenderStudents();
+        document.getElementById('roll-no').value = '';
+        document.getElementById('student-name').value = '';
+    }
+
+    function editStudent(oldRoll) {
+        const student = students.find(s => s.roll === oldRoll);
+        if(!student) return;
+        const newRoll = prompt("Edit Roll Number:", student.roll);
+        if(newRoll === null || newRoll.trim() === '') return;
+        if(newRoll !== student.roll && students.find(s => s.roll === newRoll)) return alert("Roll Number already in use.");
+        const newName = prompt("Edit Student Name:", student.name);
+        if(newName === null || newName.trim() === '') return;
+        student.roll = newRoll.trim();
+        student.name = newName.trim().toUpperCase();
+        saveAndRenderStudents();
+    }
+
+    function removeStudent(roll) {
+        if(confirm('Remove this student? Attendance history will be lost.')) {
+            students = students.filter(s => s.roll !== roll);
+            saveAndRenderStudents();
+        }
+    }
+
+    function saveAndRenderStudents() {
+        students.sort((a, b) => parseInt(a.roll) - parseInt(b.roll));
+        localStorage.setItem('aba_class10_students', JSON.stringify(students));
+        renderStudents();
+    }
+
+    function renderStudents() {
+        const tbody = document.getElementById('student-list');
+        tbody.innerHTML = '';
+        students.forEach(student => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><span class="badge bg-secondary rounded-pill px-3 py-2">${student.roll}</span></td>
+                    <td class="fw-bold text-dark">${student.name}</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-warning me-1" onclick="editStudent('${student.roll}')"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeStudent('${student.roll}')"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    // --- DAILY ATTENDANCE ---
+    function loadDailyAttendance() {
+        const date = document.getElementById('attendance-date').value;
+        const dateObj = new Date(date);
+        const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+        document.getElementById('display-date').innerText = dateObj.toLocaleDateString(undefined, options);
+        
+        const listDiv = document.getElementById('attendance-list');
+        listDiv.innerHTML = '';
+
+        if(students.length === 0) return listDiv.innerHTML = '<div class="p-4 text-center text-muted">No students found.</div>';
+
+        const presentStudents = attendanceData[date] || [];
+
+        students.forEach(student => {
+            const isChecked = presentStudents.includes(student.roll) ? 'checked' : '';
+            listDiv.innerHTML += `
+                <div class="attendance-row d-flex align-items-center">
+                    <div class="form-check d-flex align-items-center w-100 m-0">
+                        <input class="form-check-input attendance-check" type="checkbox" id="chk-${student.roll}" value="${student.roll}" ${isChecked}>
+                        <label class="form-check-label student-label" for="chk-${student.roll}">
+                            <span class="badge bg-light text-dark border me-2" style="width: 35px;">${student.roll}</span> 
+                            ${student.name}
+                        </label>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    function markAll(status) {
+        document.querySelectorAll('.attendance-check').forEach(checkbox => checkbox.checked = status);
+    }
+
+    function saveDailyAttendance() {
+        const date = document.getElementById('attendance-date').value;
+        const presentRolls = [];
+        document.querySelectorAll('.attendance-check').forEach(checkbox => {
+            if(checkbox.checked) presentRolls.push(checkbox.value);
+        });
+        attendanceData[date] = presentRolls;
+        localStorage.setItem('aba_class10_attendance', JSON.stringify(attendanceData));
+
+        const msg = document.getElementById('save-msg');
+        msg.style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setTimeout(() => { msg.style.display = 'none'; }, 2500);
+    }
+
+    // --- DATA CALCULATION HELPER ---
+    function getReportData() {
+        const reportMonthVal = document.getElementById('report-month').value; 
+        if(!reportMonthVal) return null;
+        
+        const targetYear = parseInt(reportMonthVal.split('-')[0]);
+        const targetMonth = parseInt(reportMonthVal.split('-')[1]);
+        
+        let acadYearStart = targetYear;
+        if (targetMonth < 4) acadYearStart = targetYear - 1;
+        const acadYearEnd = acadYearStart + 1;
+        
+        let monthlyOpenedDays = 0, annualOpenedDays = 0;
+        const validDates = Object.keys(attendanceData);
+        
+        validDates.forEach(dateString => {
+            const d = new Date(dateString);
+            const rYear = d.getFullYear();
+            const rMonth = d.getMonth() + 1; 
+            if ((rYear === acadYearStart && rMonth >= 4) || (rYear === acadYearEnd && rMonth <= 3)) annualOpenedDays++;
+            if (rYear === targetYear && rMonth === targetMonth) monthlyOpenedDays++;
+        });
+
+        const studentStats = students.map(student => {
+            let monthly = 0, annualTotal = 0;
+            validDates.forEach(dateString => {
+                if (attendanceData[dateString].includes(student.roll)) {
+                    const d = new Date(dateString);
+                    const rYear = d.getFullYear();
+                    const rMonth = d.getMonth() + 1; 
+                    if ((rYear === acadYearStart && rMonth >= 4) || (rYear === acadYearEnd && rMonth <= 3)) annualTotal++;
+                    if (rYear === targetYear && rMonth === targetMonth) monthly++;
+                }
+            });
+            const monthPct = monthlyOpenedDays > 0 ? Math.round((monthly / monthlyOpenedDays) * 100) : 0;
+            const annualPct = annualOpenedDays > 0 ? Math.round((annualTotal / annualOpenedDays) * 100) : 0;
+            
+            return { ...student, monthly, annualTotal, monthPct, annualPct };
+        });
+
+        return { acadYearStart, acadYearEnd, targetYear, targetMonth, monthlyOpenedDays, annualOpenedDays, studentStats };
+    }
+
+    // --- UI REPORT GENERATION ---
+    function generateReport() {
+        const data = getReportData();
+        if(!data) return;
+
+        document.getElementById('summary-session').innerText = `${data.acadYearStart} - ${data.acadYearEnd}`;
+        document.getElementById('summary-monthly-opened').innerText = data.monthlyOpenedDays;
+        document.getElementById('summary-annual-opened').innerText = data.annualOpenedDays;
+
+        const tbody = document.getElementById('report-body');
+        tbody.innerHTML = '';
+
+        data.studentStats.forEach(s => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><span class="badge bg-light text-dark border">${s.roll}</span></td>
+                    <td class="fw-bold">${s.name}</td>
+                    <td class="text-center">
+                        <span class="badge bg-success bg-opacity-25 text-success border border-success w-100 py-2">
+                            ${s.monthly} / ${data.monthlyOpenedDays} <br><small class="opacity-75">(${s.monthPct}%)</small>
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary w-100 py-2">
+                            ${s.annualTotal} / ${data.annualOpenedDays} <br><small class="opacity-75">(${s.annualPct}%)</small>
+                        </span>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    // --- EXPORT TO EXCEL ---
+    function exportToExcel() {
+        const data = getReportData();
+        if(!data) return alert("Please select a valid month to export.");
+
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const monthName = monthNames[data.targetMonth - 1];
+
+        // Prepare Data Array for SheetJS
+        const excelData = [];
+        
+        // Headers & Metadata
+        excelData.push(["ASSAM BRILLIANT ACADEMY - CLASS X ATTENDANCE"]);
+        excelData.push([`Session: ${data.acadYearStart}-${data.acadYearEnd}`, `Month: ${monthName} ${data.targetYear}`]);
+        excelData.push([`Total Monthly Opened Days: ${data.monthlyOpenedDays}`, `Total Annual Opened Days: ${data.annualOpenedDays}`]);
+        excelData.push([]); // blank row
+        
+        // Table Headers
+        excelData.push(["Roll No", "Student Name", "Monthly Att.", "Monthly %", "Annual Att.", "Annual %"]);
+
+        // Push Student Data
+        data.studentStats.forEach(s => {
+            excelData.push([
+                parseInt(s.roll), // Number format
+                s.name,
+                s.monthly,
+                s.monthPct + "%",
+                s.annualTotal,
+                s.annualPct + "%"
+            ]);
+        });
+
+        // Generate Excel File
+        const worksheet = XLSX.utils.aoa_to_sheet(excelData);
+        
+        // Auto-size columns slightly
+        worksheet['!cols'] = [ {wch: 10}, {wch: 30}, {wch: 15}, {wch: 12}, {wch: 15}, {wch: 12} ];
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
+
+        // Download the file
+        const fileName = `ClassX_Attendance_${monthName}_${data.targetYear}.xlsx`;
+        XLSX.writeFile(workbook, fileName);
+    }
+</script>
+
+</body>
+</html>
